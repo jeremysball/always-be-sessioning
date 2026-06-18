@@ -46,6 +46,31 @@ yet:
 - **zsh**: add `export PATH="$HOME/.local/bin:$PATH"` to `~/.zshrc`.
 - **fish**: run `fish_add_path ~/.local/bin`.
 
+### Auto-starting from your shell config
+
+If you don't have systemd (or just don't want a service), start `abs run` from your shell's
+startup file instead, guarded so opening a new shell doesn't spawn duplicates:
+
+**fish**, in `~/.config/fish/config.fish`, inside `if status is-interactive`:
+
+```fish
+if not pgrep -f "abs run" >/dev/null
+    abs run &>/dev/null & disown
+end
+```
+
+**bash**, in `~/.bashrc`:
+
+```bash
+if [[ $- == *i* ]] && ! pgrep -f "abs run" >/dev/null; then
+    nohup abs run >/dev/null 2>&1 &
+    disown
+fi
+```
+
+This only starts the daemon when you open a shell, not on boot if you never do; use the
+systemd service below if you want it running independently of any shell session.
+
 ### Running as a systemd service
 
 To have `abs run` start automatically and restart if it ever fails:
