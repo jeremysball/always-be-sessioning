@@ -11,6 +11,14 @@ usage() {
 cmd_run() {
     mkdir -p "$LOG_DIR" || { echo "abs.sh: failed to create $LOG_DIR" >&2; exit 1; }
 
+    account=$(claude auth status 2>/dev/null | grep '"email"' | sed 's/.*"email": *"\([^"]*\)".*/\1/')
+    ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+    if [ -n "$account" ]; then
+        echo "$ts start account=$account" >> "$LOG_FILE"
+    else
+        echo "$ts start (account unknown)" >> "$LOG_FILE"
+    fi
+
     trap 'kill "$sleep_pid" 2>/dev/null; exit 0' TERM INT
 
     while true; do
@@ -31,7 +39,11 @@ cmd_run() {
 cmd_logs() {
     mkdir -p "$LOG_DIR" || { echo "abs.sh: failed to create $LOG_DIR" >&2; exit 1; }
     touch "$LOG_FILE"
-    exec tail -f "$LOG_FILE"
+    if [ ! -s "$LOG_FILE" ]; then
+        echo "No log entries yet."
+        return
+    fi
+    exec "${PAGER:-less}" "$LOG_FILE"
 }
 
 case "$1" in
