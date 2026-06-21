@@ -4,6 +4,9 @@
 LOG_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/abs"
 LOG_FILE="$LOG_DIR/abs.log"
 
+BACKOFF_BASE=10
+BACKOFF_MAX=3600
+
 usage() {
     echo "Usage: abs.sh {run|logs}" >&2
 }
@@ -21,16 +24,25 @@ cmd_run() {
 
     trap 'kill "$sleep_pid" 2>/dev/null; exit 0' TERM INT
 
+    backoff="$BACKOFF_BASE"
+
     while true; do
         claude --print "." >/dev/null 2>&1
         status=$?
         ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
         if [ "$status" -eq 0 ]; then
             echo "$ts ok" >> "$LOG_FILE"
+            backoff="$BACKOFF_BASE"
+            next_sleep="$ABS_INTERVAL"
         else
-            echo "$ts fail (exit $status)" >> "$LOG_FILE"
+            echo "$ts fail (exit $status), retrying in ${backoff}s" >> "$LOG_FILE"
+            next_sleep="$backoff"
+            backoff=$((backoff * 2))
+            if [ "$backoff" -gt "$BACKOFF_MAX" ]; then
+                backoff="$BACKOFF_MAX"
+            fi
         fi
-        sleep "$ABS_INTERVAL" &
+        sleep "$next_sleep" &
         sleep_pid=$!
         wait "$sleep_pid"
     done

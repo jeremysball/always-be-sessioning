@@ -1,6 +1,5 @@
 [Unit]
 Description=Always Be Sessioning - keep Claude Code session alive
-After=network-online.target
 
 [Service]
 Type=simple
