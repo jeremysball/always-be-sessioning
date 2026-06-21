@@ -7,9 +7,11 @@
 
 Claude Code tracks two quotas: a five-hour session and a weekly limit. The five-hour timer starts with your first message, not when you need it. If you don't send a message, the timer doesn't start, and you lose the time you could have used.
 
+This is a particular problem if you're running Claude Code inside Docker, which is common for devcontainers and sandboxed setups. A container usually has no init system: no systemd, nothing to hand a timer to. You can't just schedule a job and walk away the way you could on a regular host.
+
 ### The solution
 
-Always Be Sessioning runs a small daemon that pings Claude Code every five hours, keeping a session window open.
+Always Be Sessioning is a small daemon: a shell script with a sleep loop, nothing more. It pings Claude Code every five hours to keep a session window open, and it runs as an ordinary process, so it works inside a plain Docker container with no init system at all. If your host does have systemd, you can optionally wrap the daemon in a user service for automatic restarts, but the daemon itself doesn't need it.
 
 ### Installation
 
@@ -70,6 +72,41 @@ systemctl --user enable --now abs.service
 ```
 
 This starts `abs run` on boot and restarts it on failure. Check status with `abs logs`. The service doesn't need separate logging; `abs run` writes to the log file regardless of how it's launched.
+
+### Alternative: a systemd timer on the host
+
+The daemon exists for the case where you only have access inside the container, with no way to schedule anything on the host. If you do have systemd on the host, you don't need `abs` at all: a timer can reach into the container directly with `docker exec` (or `docker compose exec`), without a daemon running anywhere.
+
+```ini
+# ~/.config/systemd/user/abs.service
+[Unit]
+Description=Ping Claude Code inside a container
+
+[Service]
+Type=oneshot
+ExecStart=docker exec <container-name> claude --print "."
+```
+
+Use `docker compose exec <service-name> claude --print "."` instead if you're running through Compose.
+
+```ini
+# ~/.config/systemd/user/abs.timer
+[Unit]
+Description=Run abs.service every five hours
+
+[Timer]
+OnCalendar=*-*-* 0/5:00:00
+
+[Install]
+WantedBy=timers.target
+```
+
+```bash
+systemctl --user daemon-reload
+systemctl --user enable --now abs.timer
+```
+
+Check on it with `systemctl --user list-timers abs.timer` and `journalctl --user -u abs.service`.
 
 ### Configuration
 
