@@ -1,21 +1,15 @@
 <h1 align="center">Always Be Sessioning</h1>
-<p align="center">Keep your Claude Code five-hour session window always ticking.</p>
+<p align="center">Keeps a Claude Code session window open at all times.</p>
 
 <hr/>
 
 ### The problem
 
-When using Claude Code there are two quotas: the five hour session and the week. The five
-hour session doesn't start until you send your first request, so you can end up in a
-situation where if you'd sent a single message four hours ago, you'd have a refresh in just
-one hour. Instead, the timer never started, and now it only begins ticking down once you
-actually need it.
+Claude Code tracks two quotas: a five-hour session and a weekly limit. The five-hour timer starts with your first message, not when you need it. If you don't send a message, the timer doesn't start, and you lose the time you could have used.
 
 ### The solution
 
-A small daemon that runs in the background and periodically calls Claude Code to trigger a
-session. Just a single invocation every five hours, so a session window is always open and
-ready when you need it.
+Always Be Sessioning runs a small daemon that pings Claude Code every five hours, keeping a session window open.
 
 ### Installation
 
@@ -28,19 +22,16 @@ This installs `abs` to `~/.local/bin/abs`. Re-running it upgrades an existing in
 ### Usage
 
 ```bash
-abs run    # start the daemon loop
-abs logs   # follow the daemon's log
+abs run    # start the daemon
+abs logs   # view the daemon's log
 ```
 
-`run` is meant to be left running in the background (under a process supervisor, `tmux`,
-`nohup`, or the systemd service below). `logs` tails
-`${XDG_STATE_HOME:-$HOME/.local/state}/abs/abs.log`, where each line records a timestamp and
-whether that cycle's ping succeeded.
+`run` starts the daemon and should be run in the background, using a process supervisor, `tmux`, `nohup`, or the systemd service below. `logs` opens
+`${XDG_STATE_HOME:-$HOME/.local/state}/abs/abs.log` in your pager. Each line records a timestamp and whether that cycle's ping succeeded.
 
 ### PATH setup
 
-If `abs run`/`abs logs` aren't found after installing, `~/.local/bin` isn't on your `PATH`
-yet:
+If `abs` isn't found after installing, add `~/.local/bin` to your `PATH`:
 
 - **bash**: add `export PATH="$HOME/.local/bin:$PATH"` to `~/.bashrc`.
 - **zsh**: add `export PATH="$HOME/.local/bin:$PATH"` to `~/.zshrc`.
@@ -48,8 +39,7 @@ yet:
 
 ### Auto-starting from your shell config
 
-If you don't have systemd (or just don't want a service), start `abs run` from your shell's
-startup file instead, guarded so opening a new shell doesn't spawn duplicates:
+To start `abs run` from your shell's startup file instead of using systemd, guard it so a new shell doesn't spawn duplicates:
 
 **fish**, in `~/.config/fish/config.fish`, inside `if status is-interactive`:
 
@@ -68,12 +58,9 @@ if [[ $- == *i* ]] && ! pgrep -f "abs run" >/dev/null; then
 fi
 ```
 
-This only starts the daemon when you open a shell, not on boot if you never do; use the
-systemd service below if you want it running independently of any shell session.
+This starts the daemon when a shell opens, not on boot. Use the systemd service below to run it independently of any shell session.
 
 ### Running as a systemd service
-
-To have `abs run` start automatically and restart if it ever fails:
 
 ```bash
 mkdir -p ~/.config/systemd/user
@@ -82,19 +69,17 @@ curl -fsSL https://raw.githubusercontent.com/jeremysball/always-be-sessioning/ma
 systemctl --user enable --now abs.service
 ```
 
-Check on it with `abs logs` as usual; the service itself doesn't need separate logging since
-`abs run` already writes to the log file regardless of how it's launched.
+This starts `abs run` on boot and restarts it on failure. Check status with `abs logs`. The service doesn't need separate logging; `abs run` writes to the log file regardless of how it's launched.
 
 ### Configuration
 
-| Variable       | Default | Description                                |
-| -------------- | ------- | -------------------------------------------- |
-| `ABS_INTERVAL` | `5h`    | How often to ping, passed straight to `sleep`. |
+| Variable       | Default | Description                                      |
+| -------------- | ------- | ------------------------------------------------ |
+| `ABS_INTERVAL` | `5h`    | How often to ping, passed directly to `sleep`.   |
 
 ### Requirements
 
-The `claude` CLI, installed and already authenticated. `abs.sh` only runs
-`claude --print "."` on a timer; it doesn't handle login.
+The `claude` CLI, installed and authenticated. `abs` runs `claude --print "."` on a timer and doesn't handle login.
 
 <hr/>
 
